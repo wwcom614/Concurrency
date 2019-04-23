@@ -26,6 +26,7 @@ public class EnumSingleton {
         Singleton(){
             enumSingleton = new EnumSingleton();
         }
+
         public EnumSingleton getInstance(){
             return enumSingleton;
         }

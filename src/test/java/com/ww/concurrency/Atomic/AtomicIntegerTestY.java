@@ -18,7 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 public class AtomicIntegerTestY {
 
     //请求总数
-    public int requestTotal = 5000;
+    public int REQ_TOTAL = 5000;
     //允许同时并发执行的线程数
     public int threadNum = 200;
     //使用原子计数
@@ -30,9 +30,9 @@ public class AtomicIntegerTestY {
         //使用Semaphore模拟允许同时并发执行的线程数
         final Semaphore semaphore = new Semaphore(threadNum);
         //使用CountDownLatch模拟请求总数
-        final CountDownLatch countDownLatch = new CountDownLatch(requestTotal);
+        final CountDownLatch countDownLatch = new CountDownLatch(REQ_TOTAL);
 
-        for (int i = 0; i < requestTotal; i++ ){
+        for (int i = 0; i < REQ_TOTAL; i++ ){
             executorService.execute(() -> {
                 try {
                     //控制模拟并发量：判断当前进程是否允许被执行，如果并发量超过预设值，进行阻塞等待
@@ -64,7 +64,10 @@ public class AtomicIntegerTestY {
     private void add() {
         //先获取当前值，再自增。本测试用哪个都行，有业务逻辑时要注意用哪个
         // count.getAndIncrement();
-
+        //期望值是1，如果主内存是1，update为2019
+        //count.compareAndSet(1,2019);
+        //看看当前值到底是多少
+        //count.get();
         //先自增，再获取当前值
         count.incrementAndGet();
     }

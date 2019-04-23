@@ -14,18 +14,18 @@ import java.util.concurrent.*;
 @Slf4j
 public class CyclicBarrierTestY {
 
-    private final static int requestTotal = 10;
+    private final static int REQ_TOTAL = 10;
 
     //假如5个线程等待都OK再继续向下执行
     private static CyclicBarrier cyclicBarrier = new CyclicBarrier(5,()->{
-        log.info("after ready first run!");//5个线程ready之后可以优先执行这里
+        log.info("after ready first run!");//5个线程都await好之后执行这里
     });
 
     public static void main(String[] args) {
         ExecutorService executorService = Executors.newCachedThreadPool();
 
 
-        for (int i = 0; i < requestTotal; i++) {
+        for (int i = 0; i < REQ_TOTAL; i++) {
             final int threadNum = i;
             executorService.execute(() -> {
                 try {

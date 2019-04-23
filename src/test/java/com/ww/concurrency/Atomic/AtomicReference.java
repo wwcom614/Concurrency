@@ -1,15 +1,17 @@
 package com.ww.concurrency.Atomic;
 
 import com.ww.concurrency.annoations.ThreadSafe;
+import lombok.extern.java.Log;
 import lombok.extern.slf4j.Slf4j;
 import org.junit.Test;
 
-import java.util.concurrent.atomic.AtomicReference;
+
 
 
 //线程安全
 @ThreadSafe
 @Slf4j
+@Log
 public class AtomicReference {
 
     private static java.util.concurrent.atomic.AtomicReference<Integer> count = new java.util.concurrent.atomic.AtomicReference<>(0);

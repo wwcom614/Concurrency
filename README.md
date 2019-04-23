@@ -1,44 +1,47 @@
-学习JAVA多线程原理，并同步编码实践常用工具类，体会线程安全：   
-Synchronized、Atomic包及其方法体会原子性、同步容器、并发容器、
-饿汉/懒汉单例模式体会安全发布对象、不可变量CollectionsUnmodifiable和GuavaImmutable、
-模拟多个互联网用户访问WEB Server，并使用过滤器Filter和拦截器Interceptor体会threadLocal的线程封闭方法、
-JUC中的AQS、ReentrantLock/StampedLock等、callable+线程返结果Future、线程池的使用和测试。  
+JAVA多线程常用工具类编码实践，线程安全对比总结：   
+Synchronized、Atomic包及其方法的原子性、同步容器、并发容器、
+饿汉/懒汉单例模式的线程安全、安全发布对象、不可变量CollectionsUnmodifiable和GuavaImmutable、
+模拟多个互联网用户访问WEB Server，并使用过滤器Filter和拦截器Interceptor实践threadLocal的线程封闭、
+JUC中的AQS、ReentrantLock/StampedLock等、callable+线程返结果Future、线程池的使用和测试等。  
 
-最佳实践总结：     
-1.使用本地变量：线程封闭、节省内存且便于回收。   
-2.避免使用静态变量，如果一定要使用，要只读，例如final、CollectionUnmodifiable、Immutable。   
+生产过程中的一些多线程并发编程的经验总结：     
+1.使用本地变量：线程封闭threalocal、节省内存且便于回收。   
+2.尽量避免使用静态变量，如果一定要使用，只读不可变，例如final、CollectionUnmodifiable、Immutable。   
 3.使用不可变类：String，Integer，Long等，降低代码中需要同步的数量。   
 4.最小化锁的作用域范围，例如synchronized需多线程读写的资源代码块，而不是synchronized整个方法。    
 5.使用线程池Executor，而不是直接new Thread。   
-6.使用AQS同步器(CountdownLatch、Semophore、CyclicBarrier等)，而不是使用线程的wait和notify。    
-7.使用BlockingQueue实现生产消费者模式。   
-8.使用并发容器而不是同步容器(内部每个方法加synchronzied)。   
-9.使用Semophore控制并发数。 
-
+6.使用AQS同步器(CountdownLatch、Semaphore、CyclicBarrier等)，而不是使用线程的wait和notify。    
+7.使用阻塞队列BlockingQueue实现生产消费者模式，线程之间共享数据。   
+8.使用并发容器而不是同步容器(同步容器内部，在每个方法加synchronzied线程安全但性能不好，而且方法间并发线程不安全)。   
+9.使用Semophare控制并发数。  
 
 ## Atomic
 原子性：提供了互斥访问能力，同一时刻只能有一个线程对它进行操作。   
 竞争激烈时能维持常态，比Lock性能好；劣势是只能同步一个值。    
-Atomic包底层基于CAS：当前对象va1中获取期望值var2(工作内存) 与 底层获取当前值var5(主内存)相比较，如果相同才做操作。  
+Atomic包底层基于本地接口unsafe类实现CAS：当前对象va1中获取期望值var2(工作内存) 与 底层获取当前值var5(主内存)相比较，如果相同才做操作。  
 CAS存在ABA的问题，场景严格需要时，使用AtomicStampedReference，compareAndSet中增加了参数stamp做数据版本号解决。    
 
 - AtomicIntegerTestY.java  
-多线程中经常作为原子变量使用，使用了AtomicInteger类型变量，AtomicInteger.getAndIncrement()、AtomicInteger.incrementAndGet()自增操作都是原子的，区别在于返回值可能不同。  
+多线程竞争场景下，自增、自减、比较的线程安全原子变量AtomicInteger。  
+AtomicInteger.getAndIncrement()增加了一个值，返回值是增加前的值。   
+AtomicInteger.incrementAndGet()增加了一个值，返回值是增加后的值。   
 
 - LongAddrTestY.java  
 LongAdder与AtomicLong功能一样，区别是：   
 1.自增方法是LongAdder.increment()或LongAdder.add(nL)--每次自增n。  
 2.优点：高并发时LongAdder性能比AtomicLong好，因为其进行了热点分离，将Long拆解成多块区域。  
 3.缺点：LongAdder计数会有不准的可能，统计或序列生成场景不能使用。  
+支持atomicLong.compareAndSet(expectedValue, newValue);   
 
 - AtomicBooleanTestY.java  
 场景：需要一段代码在高并发多线程环境下，有且仅执行一次。  
-AtomicBoolean.compareAndSet(false,true)方法(将expect原本为false，update为true)，  
+AtomicBoolean.compareAndSet(false,true)方法，参数1是expectedValue，参数2是updateValue(实际值与参数1一致，则更新;不一致则不更新)。     
 在高并发多线程情况下，可以保证compareAndSet的if分支内的代码只被一个线程抢到，最终只执行一次。    
 
 - AtomicReference.java  
-AtomicReference.compareAndSet(expect_value,update_value)方法(将expect原本为expect_value，update为update_value)，
-在高并发多线程情况下，可以使用if语句，控制所有线程在指定的分支流中，每个分支只能由一个线程争抢到唯一一次，完成预定任务
+提供了一个可以被原子性读和写的对象引用变量
+AtomicReference.compareAndSet(expect_ref,update_ref)方法，将当前引用于一个期望值(引用)进行比较：
+如果相等，在该 AtomicReference 对象内部设置一个新的引用。  
 
 - AtomicIntegerFieldUpdaterTry.java，AtomicIntegerFieldUpdaterModel    
 原子性更新某个类的实例中的某个属性，该属性定义必须是public volatile int   
@@ -52,9 +55,9 @@ AtomicReference.compareAndSet(expect_value,update_value)方法(将expect原本�
 - HungerySingleton.java：  
 安全发布对象方法之一：在静态初始化方法中初始化一个对象引用：     
 单例饿汉模式，静态初始化方法中初始化一个对象引用，单例在类装载时就创建好了，是线程安全的。  
-使用要求：  
+使用场景：  
 1.私有构造函数处理不多，否则类加载慢，性能有问题；  
-2.肯定会被使用，防止资源浪费。  
+2.对象肯定会被使用。  
 
 - HungerySingleton2.java   
 还是单例饿汉模式，还可以：  
@@ -133,7 +136,7 @@ StringBuffer是线程安全的，其内部实现使用了synchronized，性能�
 - SimpleDateFormatTestN.java， JodaTimeTestY.java  
 SimpleDateFormat是线程不安全的，如果以全局静态变量给多线程使用，运行时会抛出大量异常；
 基于线程封闭方法，将SimpleDateFormat改为局部变量(每个线程new自己的局部变量SimpleDateFormat)使用可规避该问题。   
-JodaTime是线程安全的，推荐使用。      
+第三方JodaTime，JAVA8的DateTime是线程安全的，推荐使用。      
 
 ##  List   
 - ArrayListTestN.java       
@@ -191,40 +194,43 @@ AbstractQueuedSynchronizer，并发容器中的同步器，提供了先进先出
 内部维护了一个队列来管理锁，线程会首先尝试获取锁；如果失败，就将当前线程等待状态等信息包成一个node节点，加入到AQS的同步队列Sync queue中，线程不断循环尝试获取锁。  
 前提是当前head不断后进才会尝试。如果失败，阻塞自己，直到自己再被唤醒；持有锁的线程释放锁的时候，会唤醒队列中的后进线程。  
 
-- SemophoreTestY.java，SemophoreTryTestY.java   
+- SemaphoreTestY.java，SemaphoreTryTestY.java   
 使用场景：控制并发量。  
 并发量threadTotal：final Semaphore semaphore = new Semaphore(threadTotal);  
 获得N个许可：semaphore.acquire(N);  
 释放N个许可，这些许可都做完再做其他的：semaphore.release(N);  
-尝试在总共5秒内拿到2个许可就做，拿不到不做：if(semaphore.tryAcquire(2,5000, TimeUnit.MILLISECONDS))  
+尝试在总共5秒内拿到2个许可就做，拿不到不做：if(semaphore.tryAcquire(2,5000, TimeUnit.MILLISECONDS));    
+默认不保证线程能够公平地可从信号量中获得许可，Semaphore semaphore = new Semaphore(1, true);强制公平会影响到并发性能，不推荐使用。  
 
 - CountDownLatchTestY.java  
+CountDownLatch用于一个或多个线程等待一系列指定操作的完成。  
 并发原子计数器--不能被重置。  
-总共执行requestTotal次：final CountDownLatch countDownLatch = new CountDownLatch(requestTotal);  
+总共执行REQ_TOTAL次：final CountDownLatch countDownLatch = new CountDownLatch(REQ_TOTAL);  
 多个线程等待，直到某个线程执行完其业务逻辑，让计数器减1，触发多个线程争抢CountDownLatch，只会有1个线程抢到：countDownLatch.countDown();  
 最终，等countDownLatch一直减为0再执行await后面的逻辑处理：countDownLatch.await();   
 可以设置等待时间，例如执行任务总共只给10毫秒完成，超过时间不等待：countDownLatch.await(10, TimeUnit.MILLISECONDS);   
 
 - CyclicBarrierTestY.java   
-区别1：  
-CountDownLatch的计数器只能使用1次；  
-CyclicBarrier的计数器可以使用reset方法重置，循环使用。  
-区别2：CountDownLatch是单个线程依次执行，CyclicBarrier是N个线程执行完再下N个线程继续。    
-CountDownLatch的计数器减1，触发多个线程争抢CountDownLatch，只会有1个线程抢到；等countDownLatch一直减为0再执行await后面的逻辑处理。    
-CyclicBarrier初始化设置N个线程完成任务，然后执行初始化时定义的runnable任务，接下来这N个线程再执行await后面的逻辑处理。然后下N个线程继续。    
-初始化设置N个线程完成任务，然后执行初始化时定义的runnable任务：：private static CyclicBarrier cyclicBarrier = new CyclicBarrier(5,()->{log.info("5个线程ready之后可以优先执行这里!");});   
-接下来，这N个线程再执行cyclicBarrier.await后面的业务处理：cyclicBarrier.await(2000,TimeUnit.MILLISECONDS);   
+CyclicBarrier是一个所有线程必须等待的一个栅栏，直到所有线程都到达，然后所有线程才可以继续做其他事情。
+CyclicBarrier是一个Runnable实例，可以在CyclicBarrier的构造方法中将Runnable栅栏行动传给它。  
+CyclicBarrier barrier = new CyclicBarrier(2, barrierAction);    
+Runnable barrierAction = ... ;   
+调用 CyclicBarrier 对象的 await() 方法，多个线程互相等待，都OK后，执行barrierAction。   
+CyclicBarrier和CountDownLatch的区别：    
+(1)CyclicBarrier的某个线程运行到某个点上之后，该线程即停止运行，直到所有的线程都到达了这个点，所有线程才重新运行；
+CountDownLatch则不是，某线程运行到某个点上之后，只是给某个数值-1而已，该线程继续运行。  
+(2)CyclicBarrier只能唤起一个任务，CountDownLatch可以唤起多个任务。  
+(3)CyclicBarrier可重用，CountDownLatch不可重用，计数值为0该CountDownLatch就不可再用了。  
 
 ## Lock  
 Synchronized是JVM实现的不可中断锁，JVM自动释放所以不会死锁。  
-ReentrantLock是JDK实现的可中断锁， 需要手工声明加锁，务必记得要在finally中释放锁unlock，避免死锁。 
+ReentrantLock是JDK实现的可中断锁， 需要手工声明加锁，务必记得要在finally中unlock释放锁，避免死锁。 
 Synchronized经过优化使用偏向锁后性能与ReentrantLock已经差不多，官方推荐Synchronized；竞争线程少的场景，可考虑Synchronized。  
 功能方面，Synchronized使用更加便利。  
 ReentrantLock细粒度，是一种自旋锁(循环调用CAS，在用户态就解决问题，避免线程进入内核态的阻塞状态)。  
 使用ReentrantLock的场景(3个独有功能，其他情况可考虑使用Synchronized)：
 1.ReentrantLock可指定使用公平锁还是非公平锁，Synchronized只能支持非公平锁。  
-PS:公平锁是指的先等待的线程先获得锁。  
-2.ReentrantLock可以分组唤醒需要唤醒的线程；Synchronized只能随机唤醒一个线程或者唤醒全部线程。   
+2.ReentrantLock可以分组唤醒指定线程；Synchronized只能随机唤醒一个线程或者唤醒全部线程。   
 3.ReentrantLock提供了能中断等待锁的线程的方法：lock.lockInterruptibly() --当前线程未中断，执行获取锁定尝试；当前线程已被中断，抛出异常。  
 
 - SynchronizedTest.java：    
@@ -252,7 +258,7 @@ PS：父类方法的Synchronized是不继承给子类的，因为Synchronized不
 乐观锁，读源码发现有个例子，拿出来进行了逐行仔细研究：  
 1.写操作：  
 写操作前加写锁时，生成新的数据版本号stamp，long stamp = sl.writeLock();      
-写操作结束后，务必要解对应stamp的写锁，finally {sl.unlockWrite(stamp);}    
+写操作结束后，务必要释放对应stamp的写锁，finally {sl.unlockWrite(stamp);}    
 2.读操作：   
 首先尝试获取读乐观锁，long stamp = sl.tryOptimisticRead();   
 检查读乐观锁获取的stamp--是否其他线程已加写操作锁，if(!sl.validate(stamp)){}    
@@ -307,7 +313,7 @@ PS：多线程fork执行任务时，其内部使用了双端窃取算法，先�
 corePoolSize中的线程如果空闲，不会立即销毁，而是等待keepAliveTime后再销毁。    
 workQueue满，且没有空闲的线程时，需要使用rejectHandler。有4种处理策略：  
 1.AbortPolicy：默认值，不做新提交的这次任务，抛出异常。   
-2.DiscardPolicy：不做新提交的这次任务。   
+2.DiscardPolicy：不做新提交的这次任务，直接丢弃无异常抛出。   
 3.CallerRunsPolicy：用调用者所在线程执行任务。   
 4.DiscardOldestPolicy：丢弃最早的任务(队列中最前面的任务)。   
   
@@ -316,12 +322,13 @@ execute()：提交任务给线程池执行。
 submit()：提交任务给线程池执行，且能返回结果，execute+Future。    
 shutdown()：不再接受新任务，将线程池中已有任务都执行完，再关闭线程池，线程池进入shutdown状态。     
 shutdownNow()：不再接受新任务，线程池中已有任务不再执行，立即关闭线程池，线程池进入stop状态。 
-getTaskCount()：线程池已执行和未执行的任务总数。  
+getTaskCount()：线程池已执行和未执行的总任务总数。  
 getCompletedTaskCount()：线程池已完成的任务总数。 
-getPoolSize()：线程池中当前的线程数量。 
-getActiveCount：线程池正在执行任务的线程数。  
+getPoolSize()：线程池中当前的线程数量。  
+getActiveCount：线程池正在执行任务的活跃线程数。  
+getQueue().size()：线程池队列中等待执行的任务数目。   
 
-实际大型项目中，我们直接使用ThreadPoolExecutor，下面都是ThreadPoolExecutor的封装类，只是试试看怎么用。     
+实际生产项目中，我们直接使用ThreadPoolExecutor，下面都是ThreadPoolExecutor的封装类，生产上一般不用。     
 - NewCachedThreadPoolTry.java  
 Executors.newCachedThreadPool创建一个缓存线程池，如果线程池长度超过处理需要，可以灵活回收空闲线程；如果没有可回收的线程，就新建线程。   
 
